@@ -12,19 +12,19 @@
 
 ## 📥 ดาวน์โหลด (Download manifest.xml)
 *เพื่อให้ไฟล์โหลดลงเครื่องได้โดยตรง กรุณา **คลิกขวา** ที่ลิงก์ด้านล่างแล้วเลือก **"Save Link As..." (บันทึกลิงก์เป็น...)***
-👉 [**ดาวน์โหลดไฟล์ manifest.xml**](https://vk-poonyakanok.github.io/thai-numeral-converter/manifest.xml)
+👉 [**ดาวน์โหลดไฟล์ manifest.xml**](https://vitchakorn.com/thai-numeral-converter/manifest.xml)
 
 ## เอกสารทางกฎหมาย (Legal Documents)
 สำหรับการตรวจสอบโดย Microsoft Partner Center:
-- **Privacy Policy**: [Link](https://vk-poonyakanok.github.io/thai-numeral-converter/privacy.html)
-- **End User License Agreement (EULA)**: [Link](https://vk-poonyakanok.github.io/thai-numeral-converter/eula.html)
+- **Privacy Policy**: [Link](https://vitchakorn.com/thai-numeral-converter/privacy.html)
+- **End User License Agreement (EULA)**: [Link](https://vitchakorn.com/thai-numeral-converter/eula.html)
 
 ## 💻 วิธีการติดตั้ง (How to Install)
 
 ### สำหรับ MacOS
 เพื่อให้ปุ่ม **IT๙** ปรากฏในโปรแกรม Word บน Mac ให้ทำตามขั้นตอนดังนี้:
 
-1. **Download & Copy**: [ดาวน์โหลดไฟล์ `manifest.xml`](https://vk-poonyakanok.github.io/thai-numeral-converter/manifest.xml) (*คลิกขวา -> Save As*) แล้วคัดลอกไปไว้ที่:
+1. **Download & Copy**: [ดาวน์โหลดไฟล์ `manifest.xml`](https://vitchakorn.com/thai-numeral-converter/manifest.xml) (*คลิกขวา -> Save As*) แล้วคัดลอกไปไว้ที่:
    `~/Library/Containers/com.microsoft.Word/Data/Documents/wef/manifest.xml`
    *(หากไม่มีโฟลเดอร์ `wef` ให้สร้างขึ้นมาใหม่)*
 2. **Restart Word**: ปิดโปรแกรม Word (Cmd + Q) แล้วเปิดใหม่
@@ -57,4 +57,4 @@
 
 ---
 **พัฒนาโดย:** Vitchakorn Poonyakanok (IT๙)
-**เวอร์ชัน:** 1.22.0
+**เวอร์ชัน:** 1.23.0
