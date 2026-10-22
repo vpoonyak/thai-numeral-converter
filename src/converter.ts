@@ -14,6 +14,23 @@ const MONTHS_MAP: { [key: string]: string } = {
   'Jul': 'ก.ค.', 'Aug': 'ส.ค.', 'Sep': 'ก.ย.', 'Oct': 'ต.ค.', 'Nov': 'พ.ย.', 'Dec': 'ธ.ค.'
 };
 
+function toThaiDigits(text: string): string {
+  return text.split('').map((char: string) => ARABIC_TO_THAI_MAP[char] || char).join('');
+}
+
+/**
+ * Collects the parts of a conversion that failed, so the UI can report them
+ * instead of claiming full success.
+ */
+function warn(warnings: string[], label: string, error: unknown) {
+  console.warn(label, error);
+  if (warnings.some((w) => w.startsWith(label))) return;
+  // OfficeExtension.Error carries a code (e.g. ApiNotFound) and where it failed
+  const err = error as { code?: string; message?: string; debugInfo?: { errorLocation?: string } };
+  const detail = [err?.code, err?.debugInfo?.errorLocation].filter(Boolean).join(" @ ") || err?.message || String(error);
+  warnings.push(`${label} [${detail}]`);
+}
+
 /**
  * Converts Arabic numerals to Thai numerals in a string.
  */
@@ -41,36 +58,24 @@ export function convertText(text: string, useSmartIgnore: boolean): string {
  * Mimics VBA Find.Execute Replace:=wdReplaceAll
  */
 async function replaceAllDigitsInRange(range: Word.Range, useSmartIgnore: boolean, context: Word.RequestContext) {
-  try {
-    // Search for all digit blocks
-    const searchPattern = useSmartIgnore ? "[a-zA-Z0-9]{1,}" : "[0-9]{1,}";
-    const results = range.search(searchPattern, { matchWildcards: true });
-    results.load("items");
-    await context.sync();
+  // Search for all digit blocks (or alphanumeric words, so Smart Ignore can skip spin9, 9arm, ...)
+  const searchPattern = useSmartIgnore ? "[a-zA-Z0-9]{1,}" : "[0-9]{1,}";
+  const results = range.search(searchPattern, { matchWildcards: true });
+  results.load("items/text");
+  await context.sync();
 
-    for (let i = 0; i < results.items.length; i++) {
-      const blockRange = results.items[i];
-      blockRange.load("text");
-      await context.sync();
-
-      const text = blockRange.text;
-      if (useSmartIgnore) {
-        if (/^[0-9]+$/.test(text)) {
-          const thaiText = text.split('').map((char: string) => ARABIC_TO_THAI_MAP[char] || char).join('');
-          blockRange.insertText(thaiText, "Replace");
-        }
-      } else {
-        const thaiText = text.split('').map((char: string) => ARABIC_TO_THAI_MAP[char] || char).join('');
-        blockRange.insertText(thaiText, "Replace");
-      }
-    }
-  } catch (e) {}
+  // Queue every replacement, then sync once
+  for (const blockRange of results.items) {
+    if (useSmartIgnore && !/^[0-9]+$/.test(blockRange.text)) continue;
+    blockRange.insertText(toThaiDigits(blockRange.text), "Replace");
+  }
+  await context.sync();
 }
 
 /**
  * Processes a "Story" (Body, Header, Footer, Shape Body)
  */
-async function processStory(body: Word.Body, useSmartIgnore: boolean, context: Word.RequestContext) {
+async function processStory(body: Word.Body, useSmartIgnore: boolean, context: Word.RequestContext, warnings: string[]) {
   if (!body) return;
 
   // 1. Handle Fields (Page Numbers, Total Pages)
@@ -87,9 +92,11 @@ async function processStory(body: Word.Body, useSmartIgnore: boolean, context: W
       if (type === "page" || type === "numpages") {
         try {
           if (!field.code.includes("ThaiArabic")) {
-            field.code = field.code + " \\* ThaiArabic ";
+            field.code = field.code.trimEnd() + " \\* ThaiArabic ";
           }
-          (field as any).update();
+          field.updateResult();
+          // Office.js only reports API errors on sync, so sync here to reach the fallback
+          await context.sync();
         } catch (e) {
           // If we can't update code (WordApi < 1.5), fallback to flattening
           try {
@@ -100,15 +107,24 @@ async function processStory(body: Word.Body, useSmartIgnore: boolean, context: W
               const thai = convertText(res.text, false);
               field.unlink();
               res.insertText(thai, "Replace");
+              await context.sync();
             }
-          } catch (err) {}
+          } catch (err) {
+            warn(warnings, "เลขหน้า (Page fields)", err);
+          }
         }
       }
     }
-  } catch (e) {}
+  } catch (e) {
+    warn(warnings, "ฟิลด์ (Fields)", e);
+  }
 
   // 2. Perform Global Digit Replacement in this story
-  await replaceAllDigitsInRange(body.getRange(), useSmartIgnore, context);
+  try {
+    await replaceAllDigitsInRange(body.getRange(), useSmartIgnore, context);
+  } catch (e) {
+    warn(warnings, "ตัวเลขในเนื้อหา (Text)", e);
+  }
 
   // 3. Recurse into Shapes (Textboxes) in this story
   try {
@@ -121,7 +137,7 @@ async function processStory(body: Word.Body, useSmartIgnore: boolean, context: W
         const sBody = (shape as any).body;
         sBody.load("type");
         await context.sync();
-        await processStory(sBody, useSmartIgnore, context);
+        await processStory(sBody, useSmartIgnore, context, warnings);
       } catch (e) {
         // Fallback for shapes without a full 'body' property
         try {
@@ -131,34 +147,41 @@ async function processStory(body: Word.Body, useSmartIgnore: boolean, context: W
           if (tFrame.hasText) {
             await replaceAllDigitsInRange(tFrame.textRange, useSmartIgnore, context);
           }
-        } catch (err) {}
+        } catch (err) {
+          warn(warnings, "กล่องข้อความ (Text boxes)", err);
+        }
       }
     }
-  } catch (e) {}
+  } catch (e) {
+    warn(warnings, "รูปร่าง (Shapes)", e);
+  }
 }
 
 /**
  * Main Conversion Functions
  */
-export async function convertSelection(useSmartIgnore: boolean) {
+export async function convertSelection(useSmartIgnore: boolean): Promise<string[]> {
   await Word.run(async (context: Word.RequestContext) => {
     const selection = context.document.getSelection();
     await replaceAllDigitsInRange(selection, useSmartIgnore, context);
-    await context.sync();
   });
+  return [];
 }
 
-export async function convertMainBody(useSmartIgnore: boolean) {
+export async function convertMainBody(useSmartIgnore: boolean): Promise<string[]> {
+  const warnings: string[] = [];
   await Word.run(async (context: Word.RequestContext) => {
-    await processStory(context.document.body, useSmartIgnore, context);
+    await processStory(context.document.body, useSmartIgnore, context, warnings);
     await context.sync();
   });
+  return warnings;
 }
 
 /**
  * THE ULTIMATE CONVERTER (Inspired by VBA)
  */
-export async function flattenAdvancedElements(useSmartIgnore: boolean) {
+export async function flattenAdvancedElements(useSmartIgnore: boolean): Promise<string[]> {
+  const warnings: string[] = [];
   await Word.run(async (context: Word.RequestContext) => {
     // 1. FREEZE AUTOMATIC LISTS (ActiveDocument.ConvertNumbersToText)
     try {
@@ -179,14 +202,16 @@ export async function flattenAdvancedElements(useSmartIgnore: boolean) {
             const label = para.listItem.listString;
             para.detachFromList();
             para.insertText(convertText(label, false) + " ", "Start");
-          } catch (err) {}
+          } catch (err) {
+            warn(warnings, "เลขหัวข้อ (List numbers)", err);
+          }
         }
       }
     }
 
     // 2. PROCESS ALL STORY RANGES
     // A. Main Body
-    await processStory(context.document.body, useSmartIgnore, context);
+    await processStory(context.document.body, useSmartIgnore, context, warnings);
 
     // B. Headers and Footers in all sections
     const sections = context.document.sections;
@@ -201,11 +226,12 @@ export async function flattenAdvancedElements(useSmartIgnore: boolean) {
         Word.HeaderFooterType.evenPages
       ];
       for (const type of hfTypes) {
-        try { await processStory(section.getHeader(type), useSmartIgnore, context); } catch (e) {}
-        try { await processStory(section.getFooter(type), useSmartIgnore, context); } catch (e) {}
+        try { await processStory(section.getHeader(type), useSmartIgnore, context, warnings); } catch (e) { warn(warnings, "หัวกระดาษ (Headers)", e); }
+        try { await processStory(section.getFooter(type), useSmartIgnore, context, warnings); } catch (e) { warn(warnings, "ท้ายกระดาษ (Footers)", e); }
       }
     }
 
     await context.sync();
   });
+  return warnings;
 }
