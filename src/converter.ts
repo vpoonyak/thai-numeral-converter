@@ -291,6 +291,45 @@ export async function runDiagnostics(): Promise<string[]> {
       await context.sync();
       return fields.items?.length;
     }],
+    // The probes below mirror exactly what processStory() does
+    ["fields (type,code)", async (context) => {
+      const fields = context.document.body.fields;
+      fields.load("items/type,items/code");
+      await context.sync();
+      return fields.items?.length;
+    }],
+    ["search [a-zA-Z0-9]{1,}", async (context) => {
+      const results = context.document.body.getRange().search("[a-zA-Z0-9]{1,}", { matchWildcards: true });
+      results.load("items/text");
+      await context.sync();
+      return results.items?.length;
+    }],
+    ["shapes", async (context) => {
+      const shapes = context.document.body.shapes;
+      shapes.load("items");
+      await context.sync();
+      return shapes.items?.length;
+    }],
+    ["same run: fields(type,code) → search [0-9]", async (context) => {
+      const body = context.document.body;
+      const fields = body.fields;
+      fields.load("items/type,items/code");
+      await context.sync();
+      const results = body.getRange().search("[0-9]{1,}", { matchWildcards: true });
+      results.load("items/text");
+      await context.sync();
+      return `${describe(fields.items?.length)} → ${describe(results.items?.length)}`;
+    }],
+    ["same run: search [0-9] → shapes", async (context) => {
+      const body = context.document.body;
+      const results = body.getRange().search("[0-9]{1,}", { matchWildcards: true });
+      results.load("items/text");
+      await context.sync();
+      const shapes = body.shapes;
+      shapes.load("items");
+      await context.sync();
+      return `${describe(results.items?.length)} → ${describe(shapes.items?.length)}`;
+    }],
   ];
 
   const lines: string[] = [];
