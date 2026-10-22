@@ -169,10 +169,13 @@ async function processStory(body: Word.Body, useSmartIgnore: boolean, context: W
   // 3. Recurse into Shapes (Textboxes) in this story
   try {
     const shapes = body.shapes;
-    shapes.load("items");
+    shapes.load("items/type");
     await context.sync();
     for (let i = 0; i < shapes.items.length; i++) {
       const shape = shapes.items[i];
+      // Pictures (e.g. the Garuda emblem in official forms) have no text body;
+      // reading one returns nothing and used to raise false warnings
+      if (shape.type !== "TextBox" && shape.type !== "GeometricShape") continue;
       try {
         const sBody = (shape as any).body;
         sBody.load("type");
