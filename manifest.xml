@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0" xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="TaskPaneApp">
   <Id>530C19C2-1770-4B3D-9785-83F54B6AB780</Id>
-  <Version>1.22.0.0</Version>
+  <Version>1.23.0.0</Version>
   <ProviderName>IT๙</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="IT๙ Converter" />
   <Description DefaultValue="Professional tool to convert Arabic numerals to Thai numerals with Smart Ignore logic." />
-  <IconUrl DefaultValue="https://vk-poonyakanok.github.io/thai-numeral-converter/icon-32.png" />
-  <HighResolutionIconUrl DefaultValue="https://vk-poonyakanok.github.io/thai-numeral-converter/icon-64.png" />
-  <SupportUrl DefaultValue="https://github.com/vk-poonyakanok/thai-numeral-converter" />
+  <IconUrl DefaultValue="https://vitchakorn.com/thai-numeral-converter/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://vitchakorn.com/thai-numeral-converter/icon-64.png" />
+  <SupportUrl DefaultValue="https://github.com/vpoonyak/thai-numeral-converter" />
   <AppDomains>
-    <AppDomain>https://vk-poonyakanok.github.io</AppDomain>
+    <AppDomain>https://vitchakorn.com</AppDomain>
   </AppDomains>
   <Hosts>
     <Host Name="Document" />
   </Hosts>
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://vk-poonyakanok.github.io/thai-numeral-converter/" />
+    <SourceLocation DefaultValue="https://vitchakorn.com/thai-numeral-converter/" />
   </DefaultSettings>
   <Permissions>ReadWriteDocument</Permissions>
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
@@ -62,14 +62,14 @@
     </Hosts>
     <Resources>
       <bt:Images>
-        <bt:Image id="Icon.16x16" DefaultValue="https://vk-poonyakanok.github.io/thai-numeral-converter/icon-16.png" />
-        <bt:Image id="Icon.32x32" DefaultValue="https://vk-poonyakanok.github.io/thai-numeral-converter/icon-32.png" />
-        <bt:Image id="Icon.80x80" DefaultValue="https://vk-poonyakanok.github.io/thai-numeral-converter/icon-80.png" />
+        <bt:Image id="Icon.16x16" DefaultValue="https://vitchakorn.com/thai-numeral-converter/icon-16.png" />
+        <bt:Image id="Icon.32x32" DefaultValue="https://vitchakorn.com/thai-numeral-converter/icon-32.png" />
+        <bt:Image id="Icon.80x80" DefaultValue="https://vitchakorn.com/thai-numeral-converter/icon-80.png" />
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="Commands.Url" DefaultValue="https://vk-poonyakanok.github.io/thai-numeral-converter/commands.html" />
-        <bt:Url id="Taskpane.Url" DefaultValue="https://vk-poonyakanok.github.io/thai-numeral-converter/" />
-        <bt:Url id="GetStarted.LearnMore" DefaultValue="https://github.com/vk-poonyakanok/thai-numeral-converter" />
+        <bt:Url id="Commands.Url" DefaultValue="https://vitchakorn.com/thai-numeral-converter/commands.html" />
+        <bt:Url id="Taskpane.Url" DefaultValue="https://vitchakorn.com/thai-numeral-converter/" />
+        <bt:Url id="GetStarted.LearnMore" DefaultValue="https://github.com/vpoonyak/thai-numeral-converter" />
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="GetStarted.Title" DefaultValue="IT๙" />
