@@ -54,22 +54,52 @@ export function convertText(text: string, useSmartIgnore: boolean): string {
 }
 
 /**
- * Performs Global Replacement for digits 0-9 in a range.
+ * Decides, for each digit run in `text` (in order), whether it should be converted.
+ * Smart Ignore is applied here in JavaScript instead of with a Word wildcard like
+ * [a-zA-Z0-9]{1,}, which Word 16.114 on Mac answers with an empty result.
+ */
+function digitRunPlan(text: string, useSmartIgnore: boolean): boolean[] {
+  const runs = [...text.matchAll(/[0-9]+/g)];
+  if (!useSmartIgnore) return runs.map(() => true);
+  const convertible = new Set([...text.matchAll(/(?<![a-zA-Z0-9])[0-9]+(?![a-zA-Z0-9])/g)].map((m) => m.index));
+  return runs.map((m) => convertible.has(m.index));
+}
+
+/**
+ * Converts the digits in each target (paragraph or range) whose `text` is already loaded.
+ * Word's "[0-9]{1,}" search returns the same maximal digit runs, in the same order,
+ * as /[0-9]+/g over the text, so the plan lines up with the search results.
  * Mimics VBA Find.Execute Replace:=wdReplaceAll
  */
-async function replaceAllDigitsInRange(range: Word.Range, useSmartIgnore: boolean, context: Word.RequestContext) {
-  // Search for all digit blocks (or alphanumeric words, so Smart Ignore can skip spin9, 9arm, ...)
-  const searchPattern = useSmartIgnore ? "[a-zA-Z0-9]{1,}" : "[0-9]{1,}";
-  const results = range.search(searchPattern, { matchWildcards: true });
-  results.load("items/text");
+async function replaceDigitsIn(targets: (Word.Paragraph | Word.Range)[], useSmartIgnore: boolean, context: Word.RequestContext, warnings: string[]) {
+  const jobs: { plan: boolean[]; results: Word.RangeCollection }[] = [];
+  for (const target of targets) {
+    const plan = digitRunPlan(target.text ?? "", useSmartIgnore);
+    if (!plan.some(Boolean)) continue;
+    const results = target.search("[0-9]{1,}", { matchWildcards: true });
+    results.load("items/text");
+    jobs.push({ plan, results });
+  }
+  if (jobs.length === 0) return;
   await context.sync();
 
   // Queue every replacement, then sync once
-  for (const blockRange of results.items) {
-    if (useSmartIgnore && !/^[0-9]+$/.test(blockRange.text)) continue;
-    blockRange.insertText(toThaiDigits(blockRange.text), "Replace");
+  for (const { plan, results } of jobs) {
+    if (!results.items || results.items.length !== plan.length) {
+      warn(warnings, "บางย่อหน้า (Some paragraphs)", new Error(`expected ${plan.length} digit runs, Word found ${results.items?.length}`));
+      continue;
+    }
+    results.items.forEach((digits, i) => {
+      if (plan[i]) digits.insertText(toThaiDigits(digits.text), "Replace");
+    });
   }
   await context.sync();
+}
+
+async function replaceDigitsInRange(range: Word.Range, useSmartIgnore: boolean, context: Word.RequestContext, warnings: string[]) {
+  range.load("text");
+  await context.sync();
+  await replaceDigitsIn([range], useSmartIgnore, context, warnings);
 }
 
 /**
@@ -78,12 +108,29 @@ async function replaceAllDigitsInRange(range: Word.Range, useSmartIgnore: boolea
 async function processStory(body: Word.Body, useSmartIgnore: boolean, context: Word.RequestContext, warnings: string[]) {
   if (!body) return;
 
-  // 1. Handle Fields (Page Numbers, Total Pages)
+  // 1. Convert digits paragraph by paragraph. Done first so that a failure in the
+  // field or shape steps below can't stop the main text from converting.
+  try {
+    const paragraphs = body.paragraphs;
+    paragraphs.load("items/text");
+    await context.sync();
+    await replaceDigitsIn(paragraphs.items, useSmartIgnore, context, warnings);
+  } catch (e) {
+    warn(warnings, "ตัวเลขในเนื้อหา (Text)", e);
+  }
+
+  // 2. Handle Fields (Page Numbers, Total Pages)
   // VBA approach: Update field codes with \* ThaiArabic
   try {
+    // Load the bare list first: Word 16.114 on Mac answers it, but can return null
+    // for "items/type,items/code", so only ask for details when there are fields
     const fields = body.fields;
-    fields.load("items/type,items/code");
+    fields.load("items");
     await context.sync();
+    if (fields.items.length > 0) {
+      fields.load("items/type,items/code");
+      await context.sync();
+    }
 
     for (let i = 0; i < fields.items.length; i++) {
       const field = fields.items[i];
@@ -119,13 +166,6 @@ async function processStory(body: Word.Body, useSmartIgnore: boolean, context: W
     warn(warnings, "ฟิลด์ (Fields)", e);
   }
 
-  // 2. Perform Global Digit Replacement in this story
-  try {
-    await replaceAllDigitsInRange(body.getRange(), useSmartIgnore, context);
-  } catch (e) {
-    warn(warnings, "ตัวเลขในเนื้อหา (Text)", e);
-  }
-
   // 3. Recurse into Shapes (Textboxes) in this story
   try {
     const shapes = body.shapes;
@@ -145,7 +185,7 @@ async function processStory(body: Word.Body, useSmartIgnore: boolean, context: W
           tFrame.load("hasText");
           await context.sync();
           if (tFrame.hasText) {
-            await replaceAllDigitsInRange(tFrame.textRange, useSmartIgnore, context);
+            await replaceDigitsInRange(tFrame.textRange, useSmartIgnore, context, warnings);
           }
         } catch (err) {
           warn(warnings, "กล่องข้อความ (Text boxes)", err);
@@ -161,11 +201,11 @@ async function processStory(body: Word.Body, useSmartIgnore: boolean, context: W
  * Main Conversion Functions
  */
 export async function convertSelection(useSmartIgnore: boolean): Promise<string[]> {
+  const warnings: string[] = [];
   await Word.run(async (context: Word.RequestContext) => {
-    const selection = context.document.getSelection();
-    await replaceAllDigitsInRange(selection, useSmartIgnore, context);
+    await replaceDigitsInRange(context.document.getSelection(), useSmartIgnore, context, warnings);
   });
-  return [];
+  return warnings;
 }
 
 export async function convertMainBody(useSmartIgnore: boolean): Promise<string[]> {
