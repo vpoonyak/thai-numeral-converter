@@ -184,3 +184,15 @@
   color: var(--muted);
   margin-top: 4px;
 }
+
+.diagnostics {
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: var(--surface-alt);
+  font: 12px/1.5 ui-monospace, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}

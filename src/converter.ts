@@ -235,3 +235,76 @@ export async function flattenAdvancedElements(useSmartIgnore: boolean): Promise<
   });
   return warnings;
 }
+
+/**
+ * Read-only probes that show which Word API calls return data on this host.
+ * Each probe runs in its own Word.run so one failure doesn't hide the others.
+ */
+export async function runDiagnostics(): Promise<string[]> {
+  const describe = (v: unknown) => (v === undefined ? "undefined" : v === null ? "null" : JSON.stringify(v).slice(0, 40));
+  const probes: [string, (context: Word.RequestContext) => Promise<unknown>][] = [
+    ["body.text", async (context) => {
+      const body = context.document.body;
+      body.load("text");
+      await context.sync();
+      return body.text?.length;
+    }],
+    ["paragraphs (items)", async (context) => {
+      const paragraphs = context.document.body.paragraphs;
+      paragraphs.load("items");
+      await context.sync();
+      return paragraphs.items?.length;
+    }],
+    ["paragraphs (text)", async (context) => {
+      const paragraphs = context.document.body.paragraphs;
+      paragraphs.load("text");
+      await context.sync();
+      return paragraphs.items?.map((p) => p.text.length).length;
+    }],
+    ["first paragraph", async (context) => {
+      const first = context.document.body.paragraphs.getFirst();
+      first.load("text");
+      await context.sync();
+      return first.text;
+    }],
+    ["search \"1\"", async (context) => {
+      const results = context.document.body.search("1");
+      results.load("items");
+      await context.sync();
+      return results.items?.length;
+    }],
+    ["search [0-9]{1,}", async (context) => {
+      const results = context.document.body.getRange().search("[0-9]{1,}", { matchWildcards: true });
+      results.load("items/text");
+      await context.sync();
+      return results.items?.length;
+    }],
+    ["selection.text", async (context) => {
+      const selection = context.document.getSelection();
+      selection.load("text");
+      await context.sync();
+      return selection.text?.length;
+    }],
+    ["fields", async (context) => {
+      const fields = context.document.body.fields;
+      fields.load("items");
+      await context.sync();
+      return fields.items?.length;
+    }],
+  ];
+
+  const lines: string[] = [];
+  for (const [name, probe] of probes) {
+    try {
+      lines.push(`${name}: ${describe(await Word.run(probe))}`);
+    } catch (e) {
+      const err = e as { code?: string; message?: string };
+      lines.push(`${name}: ERROR ${err?.code ?? ""} ${err?.message ?? String(e)}`.trim());
+    }
+  }
+  for (const set of ["WordApi 1.1", "WordApi 1.5", "WordApiDesktop 1.1", "WordApiDesktop 1.2"]) {
+    const [setName, version] = set.split(" ");
+    lines.push(`${set}: ${Office.context.requirements.isSetSupported(setName, version) ? "yes" : "no"}`);
+  }
+  return lines;
+}

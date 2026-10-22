@@ -12,7 +12,7 @@ import {
   SpinnerSize,
   Toggle,
 } from '@fluentui/react';
-import { convertSelection, convertMainBody, flattenAdvancedElements } from './converter';
+import { convertSelection, convertMainBody, flattenAdvancedElements, runDiagnostics } from './converter';
 import { Brand, Footer } from './Brand';
 
 type Status = { message: string; detail?: string; type: MessageBarType };
@@ -39,10 +39,12 @@ function TaskPane() {
   const [status, setStatus] = useState<Status | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [confirmFlatten, setConfirmFlatten] = useState(false);
+  const [diagnosticLines, setDiagnosticLines] = useState<string[] | null>(null);
 
   const handleAction = async (action: () => Promise<string[]>) => {
     try {
       setStatus(null);
+      setDiagnosticLines(null);
       setIsProcessing(true);
       const warnings = await action();
       if (warnings.length > 0) {
@@ -120,6 +122,23 @@ function TaskPane() {
             <strong>{status.message}</strong>
             {status.detail && <div className="muted" style={{ whiteSpace: 'pre-wrap' }}>{status.detail}</div>}
           </MessageBar>
+        )}
+        {status && status.type !== MessageBarType.success && !isProcessing && (
+          <DefaultButton
+            text="ตรวจสอบปัญหา (Diagnostics)"
+            onClick={async () => {
+              setIsProcessing(true);
+              try {
+                setDiagnosticLines([...(await runDiagnostics()), diagnostics()]);
+              } finally {
+                setIsProcessing(false);
+              }
+            }}
+            styles={{ root: { marginTop: 8 } }}
+          />
+        )}
+        {diagnosticLines && !isProcessing && (
+          <pre className="diagnostics" aria-label="ผลการตรวจสอบ">{diagnosticLines.join('\n')}</pre>
         )}
       </div>
 
