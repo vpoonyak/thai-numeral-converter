@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { DefaultButton, Pivot, PivotItem, PrimaryButton, TextField, Toggle } from '@fluentui/react';
-import { convertText } from './converter';
+import { previewConversion } from './converter';
 import { Brand, Footer } from './Brand';
 
 const MANIFEST_URL = `${import.meta.env.BASE_URL}manifest.xml`;
@@ -65,7 +65,7 @@ function Landing() {
         <div>
           <div className="option-label" id="demo-result">ผลลัพธ์</div>
           <output className="demo-output" aria-labelledby="demo-result" style={{ display: 'block' }}>
-            {convertText(sample, smart)}
+            {previewConversion(sample, smart)}
           </output>
         </div>
       </section>

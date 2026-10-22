@@ -66,6 +66,16 @@ function digitRunPlan(text: string, useSmartIgnore: boolean): boolean[] {
 }
 
 /**
+ * What the Word conversion does to a piece of text (same digit rule, no date rewriting).
+ * Used by the website preview so it never promises more than the add-in does.
+ */
+export function previewConversion(text: string, useSmartIgnore: boolean): string {
+  const plan = digitRunPlan(text, useSmartIgnore);
+  let i = 0;
+  return text.replace(/[0-9]+/g, (run) => (plan[i++] ? toThaiDigits(run) : run));
+}
+
+/**
  * Converts the digits in each target (paragraph or range) whose `text` is already loaded.
  * Word's "[0-9]{1,}" search returns the same maximal digit runs, in the same order,
  * as /[0-9]+/g over the text, so the plan lines up with the search results.
